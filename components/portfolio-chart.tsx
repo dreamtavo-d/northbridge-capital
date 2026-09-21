@@ -22,11 +22,11 @@ export function PortfolioChart({
         <XAxis dataKey="date" tick={{ fontSize: 12 }} />
         <YAxis tick={{ fontSize: 12 }} />
         <Tooltip
-          formatter={(value: number) =>
+          formatter={(value) =>
             new Intl.NumberFormat("en-US", {
               style: "currency",
               currency: "USD",
-            }).format(value)
+            }).format(Number(value ?? 0))
           }
         />
         <Line
