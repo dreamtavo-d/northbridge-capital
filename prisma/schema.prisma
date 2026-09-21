@@ -1,0 +1,244 @@
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../lib/generated/prisma"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  role          Role           @default(USER)
+  emailVerified Boolean        @default(false)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  name          String
+  image         String?
+  investments   Investment[]
+  profile       Profile?
+  accounts      Account[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  deposits      Deposit[]
+  withdrawals   Withdrawal[]
+  notifications Notification[]
+
+  @@index([role])
+  @@map("user")
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  firstName String?
+  lastName  String?
+  phone     String?
+  avatarUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+model InvestmentPlan {
+  id                String       @id @default(cuid())
+  name              String
+  description       String
+  minInvestment     Decimal      @db.Decimal(18, 2)
+  maxInvestment     Decimal?     @db.Decimal(18, 2)
+  durationDays      Int
+  riskCategory      RiskCategory
+  strategy          String
+  targetReturnLabel String?
+  status            PlanStatus   @default(ACTIVE)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  investments       Investment[]
+
+  @@index([status])
+}
+
+model Investment {
+  id        String           @id @default(cuid())
+  userId    String
+  planId    String
+  amount    Decimal          @db.Decimal(18, 2)
+  status    InvestmentStatus @default(PENDING)
+  startedAt DateTime?
+  maturesAt DateTime?
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  plan      InvestmentPlan   @relation(fields: [planId], references: [id])
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  return    Return?
+
+  @@index([userId])
+  @@index([planId])
+  @@index([status])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum RiskCategory {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum PlanStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum InvestmentStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id])
+  action     String
+  targetType String
+  targetId   String
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([targetType, targetId])
+}
+
+enum DepositStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Deposit {
+  id        String        @id @default(cuid())
+  userId    String
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Decimal       @db.Decimal(18, 2)
+  reference String?
+  status    DepositStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Withdrawal {
+  id     String           @id @default(cuid())
+  userId String
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount Decimal          @db.Decimal(18, 2)
+  status WithdrawalStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Notification {
+  id      String  @id @default(cuid())
+  userId  String
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title   String
+  message String
+  isRead  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model Return {
+  id           String     @id @default(cuid())
+  investmentId String     @unique
+  investment   Investment @relation(fields: [investmentId], references: [id], onDelete: Cascade)
+  amount       Decimal    @db.Decimal(18, 2) // can be negative (a loss)
+  notes        String?
+
+  createdAt DateTime @default(now())
+
+  @@index([investmentId])
+}
+
+model RateLimit {
+  id          String @id
+  key         String
+  count       Int
+  lastRequest BigInt
+
+  @@unique([key])
+  @@map("rateLimit")
+}
